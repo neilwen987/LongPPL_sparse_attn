@@ -47,7 +47,7 @@ To reproduce the LongPPL experiments in our paper, please run:
 cd perplexity
 sh run_ppl.sh
 ```
-The evaluation data can be downloaded from [GovReport (tokenized)](https://huggingface.co/datasets/emozilla/govreport-test-tokenized). Here are our main results (the first row indicates the evaluator models).
+The evaluation data can be downloaded from [GovReport (tokenized)](https://huggingface.co/datasets/emozilla/govreport-test-tokenized). Here are our main results.
 
 |Models|LongPPL(Qwen-72B-Instruct)|LongPPL(Mistral Large 2)|LongPPL(Llama-3.1-8B)|PPL|
 |:---:|:---:|:---:|:---:|:---:|
