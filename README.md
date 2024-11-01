@@ -61,6 +61,8 @@ The evaluation data can be downloaded from [GovReport (tokenized)](https://huggi
 |[Yi-6B](https://huggingface.co/01-ai/Yi-6B-200K)|3.66|3.76|2.93|5.17|
 |[Yarn-7B](https://huggingface.co/NousResearch/Yarn-Mistral-7b-128k)|3.67|4.82|3.09|4.20|
 
+- While perplexity shows almost no correlation to their long-context performance measured by the benchmarks (please refer to our paper), LongPPL demonstrates a strong correlation.
+
 ### LongCE
 To conduct long-context finetuning with LongCE, run `accelerate config` and enable DeepSpeed acceleration. `deepspeed/zero3.json` was the configuration file used for training. 
 ```
