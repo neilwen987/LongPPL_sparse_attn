@@ -26,7 +26,7 @@ pip install longppl
 ```
 or 
 ```
-git clone https://github.com/BlackieFang/LongPPL.git
+git clone https://github.com/PKU-ML/LongPPL.git
 cd LongPPL
 pip install -e .
 ```
