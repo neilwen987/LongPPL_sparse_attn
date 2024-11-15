@@ -36,6 +36,9 @@ def compute_perplexity(
             text = convert_tokenized_to_text(tokenized_input, args.llama_path)
         else:
             text = convert_tokenized_to_text(tokenized_input, args.model)
+
+        if not os.path.exists(os.path.join("key_text", args.evaluator_name)):
+            os.makedirs(os.path.join("key_text", args.evaluator_name))
         save_path = os.path.join("key_text", args.evaluator_name, f"slice_{encoding_index}.txt")
 
         with torch.no_grad():
