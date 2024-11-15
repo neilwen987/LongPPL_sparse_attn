@@ -134,7 +134,7 @@ def compute_longppl(
     if evaluator_model is not None:
         key_text_slices = find_key_token(text, evaluator_model, evaluator_tokenizer, trunc_len, sliding_window, save_path)
     else:
-        key_text_slices = load_key_token(save_path, text)
+        key_text_slices = load_key_token(save_path)
 
     key_tokens = cal_overlap(offset_mapping, key_text_slices)
     
