@@ -86,6 +86,19 @@ def cal_overlap(offset_mapping, key_text_slices):
 
     return key_tokens
 
+def compute_offsets(text, tokenizer, input_ids):
+    offsets=[]
+    text_pointer = 0
+    for i, input_id in enumerate(input_ids[0]):
+        if i == 0:
+            token_len = len(tokenizer.decode(input_ids[0, 0]))
+        else:
+            token_len = len(tokenizer.decode(input_ids[0, i-1:i+1])) - len(tokenizer.decode(input_ids[0, i-1:i]))
+        
+        offsets.append([text_pointer, text_pointer+token_len])
+        text_pointer += token_len
+
+    return offsets
 
 
 def compute_longppl(
@@ -127,9 +140,14 @@ def compute_longppl(
             - 'ppl' (`np.float32`): The PPL score.
             - 'n_token' (`int`): The number of tokens in the input text.
     """
-    encoded_input = tokenizer(text, return_tensors="pt", add_special_tokens=False, return_offsets_mapping=True)
-    input_ids = encoded_input['input_ids'].to(model.device)
-    offset_mapping = encoded_input['offset_mapping'][0]
+    try:
+        encoded_input = tokenizer(text, return_tensors="pt", add_special_tokens=False, return_offsets_mapping=True)
+        input_ids = encoded_input['input_ids'].to(model.device)
+        offset_mapping = encoded_input['offset_mapping'][0]
+    except NotImplementedError:
+        encoded_input = tokenizer(text, return_tensors="pt", add_special_tokens=False, return_offsets_mapping=False)
+        input_ids = encoded_input['input_ids'].to(model.device)
+        offset_mapping = compute_offsets(text, tokenizer, input_ids)
     
     if evaluator_model is not None:
         key_text_slices = find_key_token(text, evaluator_model, evaluator_tokenizer, trunc_len, sliding_window, save_path)
