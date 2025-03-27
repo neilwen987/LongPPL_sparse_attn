@@ -1,6 +1,6 @@
 # LongPPL
 
-This repository is the official implementation for [What is Wrong with Perplexity for Long-context Language Modeling?](https://arxiv.org/abs/2410.23771)
+This repository is the official implementation for ICLR 2025 paper [What is Wrong with Perplexity for Long-context Language Modeling?](https://arxiv.org/abs/2410.23771)
 
 ## Introduction
 
