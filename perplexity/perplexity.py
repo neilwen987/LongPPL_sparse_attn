@@ -8,7 +8,7 @@ from tqdm import tqdm
 from longppl.longppl import *
 import os
 
-
+# Compute LongPPL of input texts
 def compute_perplexity(
     encodings, model, evaluator_model, tokenizer, evaluator_tokenizer, args, device=None
 ):
@@ -33,7 +33,7 @@ def compute_perplexity(
     for encoding_index in range(0, len(encoded_texts)):
         tokenized_input = torch.tensor(encoded_texts[encoding_index:encoding_index+1]).to(device)
         if args.tokenized:
-            text = convert_tokenized_to_text(tokenized_input, args.llama_path)
+            text = convert_tokenized_to_text(tokenized_input, args.tokenizer_path)
         else:
             text = convert_tokenized_to_text(tokenized_input, args.model)
 
@@ -71,7 +71,6 @@ def compute_perplexity(
     return {"longppl": longppl, "ppl": ppl}
 
 
-
 def main(args):
     model = AutoModelForCausalLM.from_pretrained(
         args.model,
@@ -91,17 +90,17 @@ def main(args):
 
     if args.tokenized:
         try:
-            input_texts = datasets.load_from_disk(args.tokenized)
+            input_texts = datasets.load_from_disk(args.dataset)
         except:
             input_texts = datasets.load_dataset(
-                args.tokenized, name=args.subset, split=args.split)
+                args.dataset, name=args.subset, split=args.split)
     else:
         input_texts = datasets.load_dataset(
             args.dataset, name=args.subset, split=args.split)
 
         def tokenize(example):
             tokenized = tokenizer(
-                example[args.feature],
+                example,
                 add_special_tokens=False,
                 padding=True,
                 truncation=False,
@@ -125,8 +124,7 @@ def main(args):
         input_texts = input_texts.filter(
             lambda x: x["tokenized_len"] >= args.dataset_min_tokens)
     if args.samples:
-        input_texts = input_texts['test'][:args.samples]
-    
+        input_texts = input_texts[:args.samples]
 
     ppl = compute_perplexity(
         model=model, 
@@ -141,20 +139,91 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str)
-    parser.add_argument("--evaluator-model", type=str)
-    parser.add_argument("--evaluator-name", type=str, help='To use the offline key tokens we provided, set it to Qwen2-72B-Instruct, Mistral-Large-Instruct-2407, or Meta-Llama-3.1-8B', default="Meta-Llama-3.1-8B")
-    parser.add_argument("--mode", type=str, choices=['online', 'offline'], default='offline')
-    parser.add_argument("-d", "--dataset", type=str)
-    parser.add_argument("-s", "--subset", type=str)
-    parser.add_argument("-f", "--feature", type=str)
-    parser.add_argument("--max-length", type=int, default=32768)
-    parser.add_argument("--dataset-min-tokens", type=int)
-    parser.add_argument("--split", type=str, default="test")
-    parser.add_argument("--samples", type=int)
-    parser.add_argument("--save-tokenized", type=str)
-    parser.add_argument("--tokenized", type=str)
-    parser.add_argument("--trunc-len", type=int, default=4096)
-    parser.add_argument("--sliding-window", type=int, default=1024)
-    parser.add_argument("--llama-path", type=str, default="Llama-2-7b-hf")
+
+    parser.add_argument(
+        "--model", type=str,
+        help="Repository name or local path to the model being evaluated"
+    )
+
+    parser.add_argument(
+        "--evaluator-model", type=str,
+        help="Repository name or local path to the evaluator model"
+    )
+
+    parser.add_argument(
+        "--mode", type=str,
+        choices=['online', 'offline'],
+        default='offline',
+        help="Set to 'offline' to use precomputed key tokens. Set to 'online' to compute key tokens using a custom LLM"
+    )
+
+    parser.add_argument(
+        "--evaluator-name", type=str,
+        default="Meta-Llama-3.1-8B",
+        help="If mode is 'online', key tokens will be saved to perplexity/key_text/evaluator-name. "
+             "If mode is 'offline', specify the name of a local folder containing precomputed key tokens. "
+             "Default options include: Qwen2-72B-Instruct, Mistral-Large-Instruct-2407, Meta-Llama-3.1-8B"
+    )
+
+    parser.add_argument(
+        "--dataset", type=str,
+        help="Name or local path of the Hugging Face dataset"
+    )
+
+    parser.add_argument(
+        "--tokenized", action='store_true',
+        help="Set this flag if the dataset is already tokenized"
+    )
+
+    parser.add_argument(
+        "--tokenizer-path", type=str,
+        default="NousResearch/Llama-2-7b-hf",
+        help="Path to the tokenizer used for processing the dataset (only used if --tokenized is set)"
+    )
+
+    parser.add_argument(
+        "--subset", type=str,
+        help="Subset name of the dataset (if applicable)"
+    )
+
+    parser.add_argument(
+        "--max-length", type=int,
+        default=32768,
+        help="Maximum token length. Samples exceeding this will be truncated from the end"
+    )
+
+    parser.add_argument(
+        "--dataset-min-tokens", type=int,
+        help="If specified, removes all samples with fewer than this number of tokens"
+    )
+
+    parser.add_argument(
+        "--split", type=str,
+        default="test",
+        help="Dataset split to use (e.g., 'train', 'validation', 'test')"
+    )
+
+    parser.add_argument(
+        "--samples", type=int,
+        help="If specified, only the first N samples from the dataset will be used"
+    )
+
+    parser.add_argument(
+        "--save-tokenized", type=str,
+        help="If specified, saves the tokenized dataset to the given path"
+    )
+
+    parser.add_argument(
+        "--trunc-len", type=int,
+        default=4096,
+        help="Length of the short context window used in LongPPL calculation"
+    )
+
+    parser.add_argument(
+        "--sliding-window", type=int,
+        default=1024,
+        help="Size of the sliding window used in LongPPL calculation"
+             "(see Appendix A.1 in the paper for details)"
+    )
+
     main(parser.parse_args())

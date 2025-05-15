@@ -1,10 +1,18 @@
 # #!/bin/bash
-GOVREPORT="--tokenized emozilla/govreport-test-tokenized --dataset-min-tokens 16384 --samples 50"
+GOVREPORT="--dataset emozilla/govreport-test-tokenized --tokenized --dataset-min-tokens 16384 --samples 50"
 
+
+# Example script
+# Calculate LongPPL using an online evaluator model
 python perplexity.py \
     ${GOVREPORT} \
-    --model $evaluated_model \
-    --evaluator-name $evaluator_name \
-    --evaluator-model $evaluator_model \
-    --mode offline
+    --model Qwen/Qwen2-7B \
+    --evaluator-model meta-llama/Llama-3.1-8B \
+    --mode online 
 
+# Calculate LongPPL using offline computed key tokens (default available: [Qwen2-72B-Instruct, Mistral-Large-Instruct-2407, Meta-Llama-3.1-8B])
+python perplexity.py \
+    ${GOVREPORT} \
+    --model Qwen/Qwen2-7B \
+    --evaluator-name Meta-Llama-3.1-8B \
+    --mode offline
