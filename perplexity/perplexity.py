@@ -50,7 +50,9 @@ def compute_perplexity(
                 evaluator_tokenizer=evaluator_tokenizer, 
                 save_path=save_path, 
                 trunc_len=args.trunc_len, 
-                sliding_window=args.sliding_window
+                sliding_window=args.sliding_window,
+                alpha=args.alpha,
+                beta=args.beta
             )
         longppl = output['longppl']
         ppl = output['ppl']
@@ -62,8 +64,8 @@ def compute_perplexity(
             nums_key_token.append(n_key_token)
         ppls.append(ppl)
         nums_token.append(n_token)
-        longppl = (np.stack(longppls) * np.stack(nums_key_token)).sum() / np.stack(nums_key_token).sum()
-        ppl = (np.stack(ppls) * np.stack(nums_token)).sum() / np.stack(nums_token).sum()
+        longppl = np.exp((np.log(np.stack(longppls)) * np.stack(nums_key_token)).sum() / np.stack(nums_key_token).sum())
+        ppl = np.exp((np.log(np.stack(ppls)) * np.stack(nums_token)).sum() / np.stack(nums_token).sum())
 
         pbar.set_postfix(longppl=longppl, ppl=ppl)
         pbar.update(1)
@@ -225,5 +227,18 @@ if __name__ == "__main__":
         help="Size of the sliding window used in LongPPL calculation"
              "(see Appendix A.1 in the paper for details)"
     )
+
+    parser.add_argument(
+        "--alpha", type=float,
+        default=2.0,
+        help="Threshold for LSD"
+    )
+
+    parser.add_argument(
+        "--beta", type=float,
+        default=-2.0,
+        help="Threshold for LCL"
+    )
+    
 
     main(parser.parse_args())

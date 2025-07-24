@@ -51,15 +51,15 @@ The evaluation data can be downloaded from [GovReport (tokenized)](https://huggi
 
 |Models|LongPPL(Qwen-72B-Instruct)|LongPPL(Mistral Large 2)|LongPPL(Llama-3.1-8B)|PPL|
 |:---:|:---:|:---:|:---:|:---:|
-|[Mixtral-8x7B](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1)|2.08|2.50|1.74|3.67|
-|[FILM-7B](https://huggingface.co/In2Training/FILM-7B)|2.49|3.17|2.03|4.47|
-|[Mistral-7B](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)|2.68|3.49|2.19|4.25|
-|[Qwen1.5-14B](https://huggingface.co/Qwen/Qwen1.5-14B)|2.97|2.93|2.33|5.23|
-|[Qwen2-7B](https://huggingface.co/Qwen/Qwen2-7B)|2.99|2.73|2.29|4.97|
-|[Phi-3-small](https://huggingface.co/microsoft/Phi-3-small-128k-instruct)|2.98|2.86|2.41|5.42|
-|[CLEX-7B](https://huggingface.co/DAMO-NLP-SG/CLEX-LLaMA-2-7B-64K)|3.70|4.60|2.92|4.13|
-|[Yi-6B](https://huggingface.co/01-ai/Yi-6B-200K)|3.62|3.92|2.86|5.11|
-|[Yarn-7B](https://huggingface.co/NousResearch/Yarn-Mistral-7b-128k)|3.67|4.88|3.10|4.17|
+|[Mixtral-8x7B](https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1)|1.99|2.33|1.70|3.59|
+|[FILM-7B](https://huggingface.co/In2Training/FILM-7B)|2.28|2.81|1.95|4.35|
+|[Mistral-7B](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)|2.48|3.10|2.11|4.14|
+|[Qwen1.5-14B](https://huggingface.co/Qwen/Qwen1.5-14B)|2.67|2.57|2.19|5.07|
+|[Qwen2-7B](https://huggingface.co/Qwen/Qwen2-7B)|2.66|2.48|2.16|4.82|
+|[Phi-3-small](https://huggingface.co/microsoft/Phi-3-small-128k-instruct)|2.66|2.58|2.28|5.29|
+|[CLEX-7B](https://huggingface.co/DAMO-NLP-SG/CLEX-LLaMA-2-7B-64K)|3.28|3.95|2.74|4.04|
+|[Yi-6B](https://huggingface.co/01-ai/Yi-6B-200K)|3.19|3.38|2.65|4.96|
+|[Yarn-7B](https://huggingface.co/NousResearch/Yarn-Mistral-7b-128k)|3.47|4.51|2.98|4.06|
 
 - While perplexity shows almost no correlation to their long-context performance measured by the benchmarks (please refer to our paper), LongPPL demonstrates a strong correlation.
 

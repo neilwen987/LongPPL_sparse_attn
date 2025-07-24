@@ -19,7 +19,7 @@ def merge_intervals(intervals):
     
     return merged_intervals 
 
-def find_key_token(text, evaluator_model, evaluator_tokenizer, trunc_len, sliding_window, save_path=None):
+def find_key_token(text, evaluator_model, evaluator_tokenizer, trunc_len, sliding_window, save_path=None, alpha=2, beta=-2):
     text_encoded = evaluator_tokenizer(text, return_tensors="pt", return_offsets_mapping=True)
     input_ids = text_encoded['input_ids'].to(evaluator_model.device)
     
@@ -41,7 +41,7 @@ def find_key_token(text, evaluator_model, evaluator_tokenizer, trunc_len, slidin
             loss_full = loss_f(output_full.logits[0, start_token+trunc_len-1: start_token+trunc_len+sliding_window-1, :], input_ids[0, start_token+trunc_len: start_token+trunc_len+sliding_window])
             loss_short = loss_f(output_short.logits[0, trunc_len-1: trunc_len+sliding_window-1, :], input_ids_short[0, trunc_len: trunc_len+sliding_window])
 
-            loss_discrepancy = (torch.logical_and((loss_short - loss_full) > 2, loss_full < 2)).squeeze()
+            loss_discrepancy = (torch.logical_and((loss_short - loss_full) > alpha, loss_full < (beta * -1))).squeeze()
 
             for i, is_key in enumerate(loss_discrepancy):
                 if is_key:
@@ -109,7 +109,9 @@ def compute_longppl(
         evaluator_tokenizer=None, 
         save_path=None, 
         trunc_len=4096, 
-        sliding_window=1024
+        sliding_window=1024,
+        alpha=2,
+        beta=-2
     ):
     r"""
     Compute the LongPPL for long text sequences.
@@ -150,7 +152,7 @@ def compute_longppl(
         offset_mapping = compute_offsets(text, tokenizer, input_ids)
     
     if evaluator_model is not None:
-        key_text_slices = find_key_token(text, evaluator_model, evaluator_tokenizer, trunc_len, sliding_window, save_path)
+        key_text_slices = find_key_token(text, evaluator_model, evaluator_tokenizer, trunc_len, sliding_window, save_path, alpha, beta)
     else:
         key_text_slices = load_key_token(save_path)
 
