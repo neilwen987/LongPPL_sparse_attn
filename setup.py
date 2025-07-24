@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="longppl",                 # 工具包名称
-    version="0.2.0",                   # 版本号
+    version="0.3.0",                   # 版本号
     author="lzfang",                # 作者
     author_email="lzfang@stu.pku.edu.cn",  # 作者邮箱
     description="Calculate the longppl of long-context LLMs",
