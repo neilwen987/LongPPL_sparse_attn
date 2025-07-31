@@ -6,7 +6,7 @@ from datasets import load_dataset, load_from_disk, DatasetDict
 from datetime import timedelta
 from torch.utils.data import DataLoader
 from accelerate import Accelerator
-from accelerate.utils import InitProcessGroupKwargs, set_seed, DummyOptim, DummyScheduler
+from accelerate.utils import InitProcessGroupKwargs, set_seed # DummyOptim, DummyScheduler
 from tqdm import tqdm
 from transformers import set_seed, default_data_collator, get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, StateDictType, FullStateDictConfig
@@ -93,7 +93,13 @@ def load_model(args):
                 sliding_window=None,
             )
         else:
-            raise NotImplementedError
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model,
+                torch_dtype=torch.bfloat16,
+                attn_implementation="flash_attention_2",
+                config=config,
+            )
+            
     
     return model
 
@@ -124,7 +130,7 @@ def main(args):
     print(model.config)
 
     try:
-        train_dataset = load_dataset(args.dataset)
+        train_dataset = load_dataset(args.dataset,'wikitext-2-raw-v1')
     except:
         train_dataset = load_from_disk(args.dataset)
     if isinstance(train_dataset, DatasetDict):
@@ -140,10 +146,11 @@ def main(args):
         shuffle=True,
         batch_size=args.batch_size
     )
+    model.gradient_checkpointing_enable()
 
     if args.deepspeed:
-        optim = DummyOptim(model.parameters(), lr=args.learning_rate)
-        scheduler = DummyScheduler(
+        optim = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
+        scheduler = get_linear_schedule_with_warmup(
             optim, num_training_steps=args.max_train_steps, num_warmup_steps=args.warmup_steps)
         model, optim, train_loader, scheduler = accelerator.prepare(
             model, optim, train_loader, scheduler
@@ -160,7 +167,7 @@ def main(args):
         optim, train_loader, scheduler = accelerator.prepare(
             optim, train_loader, scheduler)
 
-    model.gradient_checkpointing_enable()
+    
 
     accelerator.register_for_checkpointing(scheduler)
     total_batch_size = (
@@ -305,7 +312,7 @@ if __name__ == "__main__":
     args.add_argument("--model", type=str, default="Llama-2-7b-hf")
     args.add_argument("--scaling-factor", type=float, default=8.0)
     args.add_argument("--rope-theta", type=float, default=10000.0)
-    args.add_argument("--dataset", type=str, default="pg19")
+    args.add_argument("--dataset", type=str, default="wikitext")
     args.add_argument("--deepspeed", action="store_true")
     args.add_argument("--max-position-embeddings", type=int)
     args.add_argument("--lr-schedule", type=str,
@@ -316,5 +323,5 @@ if __name__ == "__main__":
     args.add_argument("--threshold", type=float, default=5.0)
     args.add_argument("--trunc-len", type=int, default=4096)
     args.add_argument("--internal", type=int, default=1024)
-    args.add_argument("--use-eabf", action="store_true")
+    args.add_argument("--use-eabf", action="store_true",default=False,)
     main(args.parse_args())

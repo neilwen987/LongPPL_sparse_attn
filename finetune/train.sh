@@ -4,13 +4,12 @@
 
 accelerate launch finetune.py \
     --output-dir output/llama2-pg19-PI-longce \
-    --model Llama-2-7b-hf \
+    --model Qwen/Qwen2.5-0.5B \
     --deepspeed \
     --max-train-steps 200 \
     --scaling-factor 8.0 \
-    --dataset datasets/pg19 \
     --save-steps 50 \
-    --gradient-accumulate-every 8 \
+    --gradient-accumulate-every 4 \
 
 # accelerate launch finetune.py \
 #     --output-dir output/llama2-pg19-eabf-longce \
