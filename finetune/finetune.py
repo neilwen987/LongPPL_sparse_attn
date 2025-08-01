@@ -63,7 +63,16 @@ def load_model(args):
                 rope_scaling={"type":"eabf", "factor": 4.0},
                 sliding_window=None
             )
-            eabf_mistral.apply_eabf(model)
+        elif "Qwen3" in args.model:  # 新增 Qwen3 支持
+            from transformers import Qwen3ForCausalLM
+            import patch.EABF_qwen3 as eabf_qwen3
+            model = Qwen3ForCausalLM.from_pretrained(
+                args.model,
+                torch_dtype=torch.bfloat16,
+                attn_implementation="flash_attention_2",
+                rope_scaling={"type":"eabf", "factor": 4.0}
+            )
+            eabf_qwen3.apply_eabf(model)
         else:
             raise NotImplementedError
     else:
@@ -92,6 +101,14 @@ def load_model(args):
                 config=config,
                 sliding_window=None,
             )
+        elif "Qwen3" in args.model:  # 新增 Qwen3 支持
+            from transformers import Qwen3ForCausalLM
+            model = Qwen3ForCausalLM.from_pretrained(
+                args.model,
+                torch_dtype=torch.bfloat16,
+                attn_implementation="flash_attention_2",
+                config=config,
+            )
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 args.model,
@@ -100,7 +117,6 @@ def load_model(args):
                 config=config,
             )
             
-    
     return model
 
 
@@ -130,7 +146,7 @@ def main(args):
     print(model.config)
 
     try:
-        train_dataset = load_dataset(args.dataset,'wikitext-2-raw-v1')
+        train_dataset = load_dataset(args.dataset,)
     except:
         train_dataset = load_from_disk(args.dataset)
     if isinstance(train_dataset, DatasetDict):
@@ -206,7 +222,7 @@ def main(args):
     # if not args.save_only:
     model.train()
     for step, batch in enumerate(train_loader):
-        stride = 20000 if 'arxiv' in args.dataset else 32768
+        stride =  16384 if 'arxiv' in args.dataset else 32768 # 20000
         text = batch['text']
         tokenizer.pad_token = tokenizer.eos_token
         input_enc = tokenizer(text, padding="max_length", max_length=stride,return_tensors="pt")
@@ -302,7 +318,7 @@ if __name__ == "__main__":
     args.add_argument("--resume-from-checkpoint", type=str)
     args.add_argument("--checkpointing-steps", type=int)
     args.add_argument("--output-dir", type=str, required=True)
-    args.add_argument("--wandb", type=str)
+    args.add_argument("--wandb", type=str,default=False,)
     args.add_argument("--seed", type=int, default=42)
     args.add_argument("--max-train-steps", type=int, default=400)
     args.add_argument("--save-steps", type=int, default=50)
@@ -312,7 +328,7 @@ if __name__ == "__main__":
     args.add_argument("--model", type=str, default="Llama-2-7b-hf")
     args.add_argument("--scaling-factor", type=float, default=8.0)
     args.add_argument("--rope-theta", type=float, default=10000.0)
-    args.add_argument("--dataset", type=str, default="wikitext")
+    args.add_argument("--dataset", type=str, default="pg19")
     args.add_argument("--deepspeed", action="store_true")
     args.add_argument("--max-position-embeddings", type=int)
     args.add_argument("--lr-schedule", type=str,
