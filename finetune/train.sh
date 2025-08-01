@@ -13,6 +13,7 @@ accelerate launch finetune.py \
     --gradient-accumulate-every 4 \
     --wandb "qwen3-longce-experiment" \
     --eval-batches 10 \
+    --topk 8 \
 
 # accelerate launch finetune.py \
 #     --output-dir output/llama2-pg19-eabf-longce \

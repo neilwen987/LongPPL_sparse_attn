@@ -15,6 +15,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
 
 from transformers.models.llama.modeling_llama import LlamaForCausalLM
 from transformers.models.mistral.modeling_mistral import MistralForCausalLM
+from topk_attention_finetune import create_topk_model
 
 
 def loss_weight(model, input_ids, trunc_len=4096, internal=1024, thre=5):
@@ -104,10 +105,13 @@ def load_model(args):
             from transformers import Qwen3ForCausalLM
             model = Qwen3ForCausalLM.from_pretrained(
                 args.model,
-                torch_dtype=torch.bfloat16,
+                torch_dtype=torch.float32,
                 attn_implementation="flash_attention_2",
                 config=config,
             )
+            if args.topk is not None:
+                print('Creating Topk Sparse Attention for Qwen3')
+                model = create_topk_model(model, args.model,args.topk)
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 args.model,
@@ -203,6 +207,7 @@ def main(args):
                 "loss_type": args.loss_type,
                 "use_eabf": args.use_eabf,
                 "num_gpus": accelerator.num_processes,
+                "topk": args.topk,
             }
         )
     
@@ -238,7 +243,7 @@ def main(args):
     val_loader = DataLoader(val_dataset, shuffle=False, batch_size=args.batch_size)
     
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=False)
-    model.gradient_checkpointing_enable()
+    # model.gradient_checkpointing_enable()
 
     # 优化器和调度器设置
     if args.deepspeed:
@@ -472,5 +477,6 @@ if __name__ == "__main__":
     args.add_argument("--internal", type=int, default=1024)
     args.add_argument("--use-eabf", action="store_true", default=False)
     args.add_argument("--eval-batches", type=int, default=10, help="评估时使用的batch数量")
+    args.add_argument("--topk", type=int, default=None, help="topk attention")
     
     main(args.parse_args())
