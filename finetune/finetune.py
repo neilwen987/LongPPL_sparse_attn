@@ -16,13 +16,45 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
 from transformers.models.llama.modeling_llama import LlamaForCausalLM
 from transformers.models.mistral.modeling_mistral import MistralForCausalLM
 from topk_attention_finetune import create_topk_model
+import torch.nn.functional as F
+from transformers import Qwen3ForCausalLM
+
+def attn_loss(model, inputs, attention_mask,original_model=None):
+    with torch.no_grad():
+        original_outputs = original_model(
+            input_ids=inputs,
+            attention_mask=attention_mask,
+            output_attentions=True
+        )
+        original_attentions = original_outputs.attentions  # List of [batch, heads, seq, seq]
+        # Get attention weights from TopK model
+    topk_outputs = model(
+        input_ids=inputs,
+        attention_mask=attention_mask,
+        output_attentions=True
+    )
+    topk_attentions = topk_outputs.attentions  # List of [batch, heads, seq, seq]
+    
+    # Compute MSE loss between attention weights
+    attention_loss = 0.0
+    num_layers = len(original_attentions)
+    
+    for i in range(num_layers):
+        # MSE loss between attention matrices
+        layer_loss = F.mse_loss(topk_attentions[i], original_attentions[i])
+        attention_loss += layer_loss
+    
+    # Average over layers
+    loss = attention_loss / num_layers
+    return loss
 
 
-def loss_weight(model, input_ids, trunc_len=4096, internal=1024, thre=5):
+
+def loss_weight(model, input_ids, attention_mask,trunc_len=4096, internal=1024, thre=5):
     loss_f = torch.nn.CrossEntropyLoss(reduction='none')
     _, max_len = input_ids.shape
 
-    output_full = model(input_ids)
+    output_full = model(input_ids,attention_mask)
     loss = loss_f(output_full.logits[0, :-1, :], input_ids[0, 1:])
 
     loss_discrepancy = torch.ones(input_ids.shape[-1], device=input_ids.device)
@@ -68,7 +100,7 @@ def load_model(args):
             import patch.EABF_qwen3 as eabf_qwen3
             model = Qwen3ForCausalLM.from_pretrained(
                 args.model,
-                torch_dtype=torch.bfloat16,
+                torch_dtype=torch.float32,
                 attn_implementation="flash_attention_2",
                 rope_scaling={"type":"eabf", "factor": 4.0}
             )
@@ -112,6 +144,12 @@ def load_model(args):
             if args.topk is not None:
                 print('Creating Topk Sparse Attention for Qwen3')
                 model = create_topk_model(model, args.model,args.topk)
+            if args.loss_type == 'attn':
+                original_model = Qwen3ForCausalLM.from_pretrained(
+                    args.model,
+                    torch_dtype=torch.float32,
+                    config=config,
+                )
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 args.model,
@@ -120,7 +158,7 @@ def load_model(args):
                 config=config,
             )
             
-    return model
+    return model, original_model if args.loss_type == 'attn' else None
 
 
 def evaluate_model(model, val_loader, accelerator, args, tokenizer, num_eval_batches=10):
@@ -146,9 +184,9 @@ def evaluate_model(model, val_loader, accelerator, args, tokenizer, num_eval_bat
                     break
                 input_ids = input_seq[:, i: i+stride]
                 
-                if args.loss_type == 'ce':
+                if args.eval_loss == 'ce':
                     loss = model(input_ids, labels=input_ids).loss
-                elif args.loss_type == 'longce':
+                elif args.eval_loss == 'longce':
                     weight, loss_origin = loss_weight(model, input_ids, trunc_len=4096, internal=1024, thre=args.threshold)
                     loss = torch.mean(loss_origin * weight)
                 
@@ -205,6 +243,7 @@ def main(args):
                 "max_train_steps": args.max_train_steps,
                 "scaling_factor": args.scaling_factor,
                 "loss_type": args.loss_type,
+                "eval_loss": args.eval_loss,
                 "use_eabf": args.use_eabf,
                 "num_gpus": accelerator.num_processes,
                 "topk": args.topk,
@@ -213,7 +252,7 @@ def main(args):
     
     accelerator.print(f"Total GPUS: {accelerator.num_processes}")
 
-    model = load_model(args)
+    model,original_model = load_model(args)
     accelerator.print(f"Model config: {model.config}")
 
     # 数据集处理
@@ -255,6 +294,8 @@ def main(args):
         )
     else:
         model = accelerator.prepare(model)
+        if args.loss_type == 'attn':
+            original_model = accelerator.prepare(original_model)
         optim = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
         if args.lr_schedule == "linear":
             scheduler = get_linear_schedule_with_warmup(
@@ -307,19 +348,22 @@ def main(args):
         tokenizer.pad_token = tokenizer.eos_token
         input_enc = tokenizer(text, padding="max_length", max_length=stride, return_tensors="pt")
         input_seq = input_enc['input_ids'].to(model.device)
+        attn_seq = input_enc['attention_mask'].to(model.device)
         seq_len = input_seq.shape[-1]
             
         for i in range(0, seq_len, stride):
             if i + stride > seq_len:
                 break
             input_ids = input_seq[:, i: i+stride]
-
+            attention_mask = attn_seq[:, i: i+stride] 
             with accelerator.accumulate(model):
                 if args.loss_type == 'ce':
-                    loss = model(input_ids, labels=input_ids).loss
+                    loss = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids).loss
                 elif args.loss_type == 'longce':
-                    weight, loss_origin = loss_weight(model, input_ids, trunc_len=4096, internal=1024, thre=args.threshold)
+                    weight, loss_origin = loss_weight(model, input_ids, attention_mask, trunc_len=4096, internal=1024, thre=args.threshold)
                     loss = torch.mean(loss_origin * weight)
+                elif args.loss_type == 'attn':
+                    loss = attn_loss(model, input_ids, attention_mask,original_model=original_model)
                 else:
                     raise NotImplementedError
                 
@@ -471,7 +515,8 @@ if __name__ == "__main__":
     args.add_argument("--lr-schedule", type=str, choices=["linear", "constant"], default="linear")
     args.add_argument("--log-loss", type=str)
     args.add_argument("--original-max-position-embeddings", type=int, default=4096)
-    args.add_argument("--loss-type", type=str, choices=['ce', 'longce'], default="longce")
+    args.add_argument("--loss-type", type=str, choices=['ce', 'longce','attn'], default="longce",help='training loss type')
+    args.add_argument("--eval-loss", type=str, choices=['ce', 'longce'], default="longce", help='evaluation loss type')
     args.add_argument("--threshold", type=float, default=5.0)
     args.add_argument("--trunc-len", type=int, default=4096)
     args.add_argument("--internal", type=int, default=1024)
